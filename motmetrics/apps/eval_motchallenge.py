@@ -48,15 +48,16 @@ string.""", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--loglevel', type=str, help='Log level', default='info')
     parser.add_argument('--fmt', type=str, help='Data format', default='mot15-2D')
     parser.add_argument('--solver', type=str, help='LAP solver to use')
+    parser.add_argument('-d','--detection',action='store_true',help='Detection metrics')
     return parser.parse_args()
 
-def compare_dataframes(gts, ts):
+def compare_dataframes(gts, ts, detection=False):
     accs = []
     names = []
     for k, tsacc in ts.items():
         if k in gts:            
             logging.info('Comparing {}...'.format(k))
-            accs.append(mm.utils.compare_to_groundtruth(gts[k], tsacc, 'iou', distth=0.5))
+            #accs.append(mm.utils.compare_to_groundtruth(gts[k], tsacc, 'iou', distth=0.5, detection=detection))
             names.append(k)
         else:
             logging.warning('No ground truth for {}, skipping.'.format(k))
@@ -87,10 +88,13 @@ if __name__ == '__main__':
     ts = OrderedDict([(os.path.splitext(Path(f).parts[-1])[0], mm.io.loadtxt(f, fmt=args.fmt)) for f in tsfiles])    
 
     mh = mm.metrics.create()    
-    accs, names = compare_dataframes(gt, ts)
+    accs, names = compare_dataframes(gt, ts, args.detection)
     
     logging.info('Running metrics')
     
-    summary = mh.compute_many(accs, names=names, metrics=mm.metrics.motchallenge_metrics, generate_overall=True)
+    if args.detection:
+        summary = mh.compute_many(accs, names=names, metrics=mm.metrics.motdetchallenge_metrics, generate_overall=True)
+    else:
+        summary = mh.compute_many(accs, names=names, metrics=mm.metrics.motchallenge_metrics, generate_overall=True)
     print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
     logging.info('Completed')

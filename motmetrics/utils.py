@@ -13,7 +13,7 @@ from .mot import MOTAccumulator
 from .distances import iou_matrix, norm2squared_matrix
 from .preprocess import preprocessResult
 
-def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5):
+def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5, detection=False):
     """Compare groundtruth and detector results.
 
     This method assumes both results are given in terms of DataFrames with at least the following fields
@@ -47,7 +47,7 @@ def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'H
 
     compute_dist = compute_iou if dist.upper() == 'IOU' else compute_euc
 
-    acc = MOTAccumulator()
+    acc = MOTAccumulator(detection=detection)
 
     # We need to account for all frames reported either by ground truth or
     # detector. In case a frame is missing in GT this will lead to FPs, in 
@@ -74,7 +74,7 @@ def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'H
     
     return acc
 
-def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5, include_all = False, vflag = ''):
+def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5, include_all = False, vflag = '',detection=False):
     """Compare groundtruth and detector results.
 
     This method assumes both results are given in terms of DataFrames with at least the following fields
@@ -108,7 +108,7 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Hei
 
     compute_dist = compute_iou if dist.upper() == 'IOU' else compute_euc
 
-    acc = MOTAccumulator()
+    acc = MOTAccumulator(detection=detection)
     #import time
     #print('preprocess start.')
     #pst = time.time()
@@ -118,7 +118,8 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Hei
     if include_all:
         gt = gt[gt['Confidence'] >= 0.99]
     else:
-        gt = gt[ (gt['Confidence'] >= 0.99) & (gt['ClassId'] == 1) ]
+        #gt = gt[ (gt['Confidence'] >= 0.99) & (gt['ClassId'] == 1) ]
+        gt = gt[ (gt['Visibility'] >= 0.5) & (gt['ClassId'] == 1) ]    # following MOT17-Det benchmark, consider only when visibility is over 0.5
     # We need to account for all frames reported either by ground truth or
     # detector. In case a frame is missing in GT this will lead to FPs, in 
     # case a frame is missing in detector results this will lead to FNs.

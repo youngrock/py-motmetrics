@@ -56,6 +56,8 @@ def load_motchallenge(fname, **kwargs):
 
     sep = kwargs.pop('sep', '\s+|\t+|,')
     min_confidence = kwargs.pop('min_confidence', -1)
+    det = kwargs.pop('det',False)
+
     df = pd.read_csv(
         fname, 
         sep=sep, 
@@ -65,6 +67,15 @@ def load_motchallenge(fname, **kwargs):
         names=['FrameId', 'Id', 'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility', 'unused'],
         engine='python'
     )
+
+    if det:
+        # for detection result file, all object id's are -1. Convert them to unique sequence numbers
+        # create new index
+        frameids = df.index.get_level_values(0).values
+        ids = [k for k in range(1,len(frameids)+1)]
+        newindextuples = list(zip(frameids,ids))
+        df.index = pd.MultiIndex.from_tuples(newindextuples,names=['FrameId','Id'])
+
         
     # Account for matlab convention.
     df[['X', 'Y']] -= (1, 1)
@@ -218,16 +229,21 @@ motchallenge_metric_names = {
     'idr' : 'IDR',
     'recall' : 'Rcll', 
     'precision' : 'Prcn',
+    'num_objects' : 'GT',
     'num_unique_objects' : 'GT', 
     'mostly_tracked' : 'MT', 
     'partially_tracked' : 'PT', 
     'mostly_lost': 'ML',  
+    'num_matches' : 'TP',
     'num_false_positives' : 'FP', 
     'num_misses' : 'FN',
     'num_switches' : 'IDs',
     'num_fragmentations' : 'FM',
     'mota' : 'MOTA',
     'motp' : 'MOTP',
+    'moda' : 'MODA',
+    'modp' : 'MODP',
+    'false_alarm_rate' : 'FAR',
     'num_transfer' : 'IDt',
     'num_ascend' : 'IDa',
     'num_migrate' : 'IDm',

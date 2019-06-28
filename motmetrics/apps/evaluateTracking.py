@@ -61,9 +61,10 @@ string in the seqmap.""", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--solver', type=str, help='LAP solver to use')
     parser.add_argument('--skip', type=int, default=0, help='skip frames n means choosing one frame for every (n+1) frames')
     parser.add_argument('--iou', type=float, default=0.5, help='special IoU threshold requirement for small targets')
+    parser.add_argument('-d','--detection',action='store_true',help='Detection metrics')
     return parser.parse_args()
 
-def compare_dataframes(gts, ts, vsflag = '', iou = 0.5):
+def compare_dataframes(gts, ts, vsflag = '', iou = 0.5, det = False):
     accs = []
     anas = []
     names = []
@@ -74,7 +75,7 @@ def compare_dataframes(gts, ts, vsflag = '', iou = 0.5):
                 fd = open(vsflag+'/'+k+'.log','w')
             else:
                 fd = ''
-            acc, ana = mm.utils.CLEAR_MOT_M(gts[k][0], tsacc, gts[k][1], 'iou', distth=iou, vflag=fd)
+            acc, ana = mm.utils.CLEAR_MOT_M(gts[k][0], tsacc, gts[k][1], 'iou', distth=iou, vflag=fd, detection=det)
             if fd!='':
                 fd.close()
             accs.append(acc)
@@ -150,15 +151,18 @@ if __name__ == '__main__':
             gtfiles[i] = generateSkippedGT(gtfile, args.skip, fmt=args.fmt)
     
     gt = OrderedDict([(seqs[i], (mm.io.loadtxt(f, fmt=args.fmt), os.path.join(args.groundtruths, seqs[i], 'seqinfo.ini')) ) for i, f in enumerate(gtfiles)])
-    ts = OrderedDict([(seqs[i], mm.io.loadtxt(f, fmt=args.fmt)) for i, f in enumerate(tsfiles)])    
+    ts = OrderedDict([(seqs[i], mm.io.loadtxt(f, fmt=args.fmt, det=args.detection)) for i, f in enumerate(tsfiles)])    
 
     mh = mm.metrics.create()
     st = time.time()
-    accs, analysis, names = compare_dataframes(gt, ts, args.log, 1.-args.iou)
+    accs, analysis, names = compare_dataframes(gt, ts, args.log, 1.-args.iou, args.detection)
     logging.info('adding frames: %.3f seconds.'%(time.time()-st))
     
     logging.info('Running metrics')
-    
-    summary = mh.compute_many(accs, anas = analysis, names=names, metrics=mm.metrics.motchallenge_metrics, generate_overall=True)
+
+    if args.detection:
+        summary = mh.compute_many(accs, anas = analysis, names=names, metrics=mm.metrics.motdetchallenge_metrics, generate_overall=True)
+    else:
+        summary = mh.compute_many(accs, anas = analysis, names=names, metrics=mm.metrics.motchallenge_metrics, generate_overall=True)
     print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
     logging.info('Completed')

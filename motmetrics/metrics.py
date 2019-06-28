@@ -385,6 +385,11 @@ def num_misses(df):
     return df.noraw.Type.isin(['MISS']).sum()
 simple_add_func.append(num_misses)
 
+def false_alarm_rate(df, num_false_positives, num_frames):
+    """False alarm rate (average false positive per frame)."""
+    return num_false_positives/num_frames
+simple_add_func.append(false_alarm_rate)
+
 def num_detections(df, num_matches, num_switches):
     """Total number of detected objects including matches and switches."""
     return num_matches + num_switches
@@ -458,6 +463,23 @@ def mota(df, num_misses, num_switches, num_false_positives, num_objects):
 
 def mota_m(partials, num_misses, num_switches, num_false_positives, num_objects):
     return 1. - (num_misses + num_switches + num_false_positives) / num_objects
+
+def modp(df, num_detections):
+    """MOT Det Precision"""
+    return df.noraw['D'].sum() / num_detections
+    
+def modp_m(partials, num_detections):
+    res = 0
+    for v in partials:
+        res += v['modp'] * v['num_detections']
+    return res / num_detections
+
+def moda(df, num_misses, num_false_positives, num_objects):
+    """MOT Det Accuracy"""
+    return 1. - (num_misses + num_false_positives) / num_objects
+
+def moda_m(partials, num_misses, num_false_positives, num_objects):
+    return 1. - (num_misses + num_false_positives) / num_objects
 
 def precision(df, num_detections, num_false_positives):
     """Number of detected objects over sum of detected and false positives."""
@@ -625,6 +647,7 @@ def create():
     m.register(num_false_positives, formatter='{:d}'.format)
     m.register(num_misses, formatter='{:d}'.format)
     m.register(num_detections, formatter='{:d}'.format)
+    m.register(false_alarm_rate, formatter='{:.3f}'.format)
     m.register(num_objects, formatter='{:d}'.format)
     m.register(num_predictions, formatter='{:d}'.format)
     m.register(num_unique_objects, formatter='{:d}'.format)
@@ -635,6 +658,8 @@ def create():
     m.register(num_fragmentations)
     m.register(motp, formatter='{:.3f}'.format)
     m.register(mota, formatter='{:.1%}'.format)
+    m.register(modp, formatter='{:.3f}'.format)
+    m.register(moda, formatter='{:.1%}'.format)
     m.register(precision, formatter='{:.1%}'.format)
     m.register(recall, formatter='{:.1%}'.format)
 
@@ -674,4 +699,19 @@ motchallenge_metrics = [
     # 'avg_iou',
     # 'switch_iou',
 ]
+
+motdetchallenge_metrics = [
+    'recall', 
+    'precision',
+    'false_alarm_rate',
+    'num_objects',  # GT
+    'num_matches',  # num TP
+    'num_false_positives',  # FP
+    'num_misses',   # num FN
+    'moda',
+    'modp',
+    # 'avg_iou',
+    # 'switch_iou',
+]
+
 """A list of all metrics from MOTChallenge."""

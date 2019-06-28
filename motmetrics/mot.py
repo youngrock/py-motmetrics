@@ -61,7 +61,7 @@ class MOTAccumulator(object):
     Computer Vision and Pattern Recognition, 2009. CVPR 2009. IEEE Conference on. IEEE, 2009.
     """
 
-    def __init__(self, auto_id=False, max_switch_time=float('inf')):
+    def __init__(self, auto_id=False, max_switch_time=float('inf'), detection=False):
         """Create a MOTAccumulator.
 
         Params
@@ -80,10 +80,15 @@ class MOTAccumulator(object):
             track switch events). The default is that there is no upper bound
             on the timespan. In units of frame timestamps. When using auto_id
             in units of count.
+
+        detection: bool
+            Indicating if this is detection metrics. For detection, association with
+            previous frames is not considered, and all events should be RAW.
         """
 
         self.auto_id = auto_id
         self.max_switch_time = max_switch_time
+        self._detection = detection
         self.reset()
 
     def reset(self):
@@ -176,28 +181,30 @@ class MOTAccumulator(object):
                 self._events.append(['RAW', oids[i], np.nan, np.nan])
 
         if oids.size * hids.size > 0:
-            # 1. Try to re-establish tracks from previous correspondences
-            for i in range(oids.shape[0]):
-                if not oids[i] in self.m:
-                    continue
+            if not self._detection:
+                # 1. In tracking mode, try to re-establish tracks from previous correspondences
+                # NOTE: this step is not needed for detection mode
+                for i in range(oids.shape[0]):
+                    if not oids[i] in self.m:
+                        continue
 
-                hprev = self.m[oids[i]]
-                j, = np.where(hids==hprev)
-                if j.shape[0] == 0:
-                    continue
-                j = j[0]
+                    hprev = self.m[oids[i]]
+                    j, = np.where(hids==hprev)
+                    if j.shape[0] == 0:
+                        continue
+                    j = j[0]
 
-                if np.isfinite(dists[i,j]):
-                    o = oids[i]
-                    h = hids[j]
-                    oids[i] = ma.masked
-                    hids[j] = ma.masked
-                    self.m[oids.data[i]] = hids.data[j]
+                    if np.isfinite(dists[i,j]):
+                        o = oids[i]
+                        h = hids[j]
+                        oids[i] = ma.masked
+                        hids[j] = ma.masked
+                        self.m[oids.data[i]] = hids.data[j]
 
-                    self._indices.append((frameid, next(eid)))
-                    self._events.append(['MATCH', oids.data[i], hids.data[j], dists[i, j]])
-                    self.last_match[o] = frameid
-                    self.hypHistory[h] = frameid
+                        self._indices.append((frameid, next(eid)))
+                        self._events.append(['MATCH', oids.data[i], hids.data[j], dists[i, j]])
+                        self.last_match[o] = frameid
+                        self.hypHistory[h] = frameid
 
             # 2. Try to remaining objects/hypotheses
             dists[oids.mask, :] = np.nan
@@ -211,39 +218,50 @@ class MOTAccumulator(object):
 
                 o = oids[i]
                 h = hids.data[j]
-                is_switch = o in self.m and \
-                            self.m[o] != h and \
-                            abs(frameid - self.last_occurrence[o]) <= self.max_switch_time
-                cat1 = 'SWITCH' if is_switch else 'MATCH'
-                if cat1=='SWITCH':
-                    if h not in self.hypHistory:
-                        subcat = 'ASCEND'
-                        self._indices.append((frameid, next(eid)))
-                        self._events.append([subcat, oids.data[i], hids.data[j], dists[i, j]])
-                is_transfer = h in self.res_m and \
-                              self.res_m[h] != o #and \
-                              # abs(frameid - self.last_occurrence[o]) <= self.max_switch_time # ignore this condition temporarily
-                cat2 = 'TRANSFER' if is_transfer else 'MATCH'
-                if cat2=='TRANSFER':
-                    if o not in self.last_match:
-                        subcat = 'MIGRATE'
-                        self._indices.append((frameid, next(eid)))
-                        self._events.append([subcat, oids.data[i], hids.data[j], dists[i, j]])
+
+                if self._detection:
+                    # if detection mode, every match is match
+                    # in detection mode, we don't care object and hypot history
                     self._indices.append((frameid, next(eid)))
-                    self._events.append([cat2, oids.data[i], hids.data[j], dists[i, j]])
-                if vf!='' and (cat1!='MATCH' or cat2!='MATCH'):
+                    self._events.append(['MATCH', oids.data[i], hids.data[j], dists[i,j]])
+                    oids[i] = ma.masked
+                    hids[j] = ma.masked
+
+                else:
+                    # if tracking mode
+                    is_switch = o in self.m and \
+                                self.m[o] != h and \
+                                abs(frameid - self.last_occurrence[o]) <= self.max_switch_time
+                    cat1 = 'SWITCH' if is_switch else 'MATCH'
                     if cat1=='SWITCH':
-                        vf.write('%s %d %d %d %d %d\n'%(subcat[:2], o, self.last_match[o], self.m[o], frameid, h))
+                        if h not in self.hypHistory:
+                            subcat = 'ASCEND'
+                            self._indices.append((frameid, next(eid)))
+                            self._events.append([subcat, oids.data[i], hids.data[j], dists[i, j]])
+                    is_transfer = h in self.res_m and \
+                                self.res_m[h] != o #and \
+                                # abs(frameid - self.last_occurrence[o]) <= self.max_switch_time # ignore this condition temporarily
+                    cat2 = 'TRANSFER' if is_transfer else 'MATCH'
                     if cat2=='TRANSFER':
-                        vf.write('%s %d %d %d %d %d\n'%(subcat[:2], h, self.hypHistory[h], self.res_m[h], frameid, o))
-                self.hypHistory[h] = frameid
-                self.last_match[o] = frameid
-                self._indices.append((frameid, next(eid)))
-                self._events.append([cat1, oids.data[i], hids.data[j], dists[i, j]])
-                oids[i] = ma.masked
-                hids[j] = ma.masked
-                self.m[o] = h
-                self.res_m[h] = o
+                        if o not in self.last_match:
+                            subcat = 'MIGRATE'
+                            self._indices.append((frameid, next(eid)))
+                            self._events.append([subcat, oids.data[i], hids.data[j], dists[i, j]])
+                        self._indices.append((frameid, next(eid)))
+                        self._events.append([cat2, oids.data[i], hids.data[j], dists[i, j]])
+                    if vf!='' and (cat1!='MATCH' or cat2!='MATCH'):
+                        if cat1=='SWITCH':
+                            vf.write('%s %d %d %d %d %d\n'%(subcat[:2], o, self.last_match[o], self.m[o], frameid, h))
+                        if cat2=='TRANSFER':
+                            vf.write('%s %d %d %d %d %d\n'%(subcat[:2], h, self.hypHistory[h], self.res_m[h], frameid, o))
+                    self.hypHistory[h] = frameid
+                    self.last_match[o] = frameid
+                    self._indices.append((frameid, next(eid)))
+                    self._events.append([cat1, oids.data[i], hids.data[j], dists[i, j]])
+                    oids[i] = ma.masked
+                    hids[j] = ma.masked
+                    self.m[o] = h
+                    self.res_m[h] = o
 
         # 3. All remaining objects are missed
         for o in oids[~oids.mask]:
