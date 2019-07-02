@@ -8,6 +8,7 @@ TOKA EXTENDED THIS FILE.
 
 import pandas as pd
 import numpy as np
+import logging
 
 from .mot import MOTAccumulator
 from .distances import iou_matrix, norm2squared_matrix
@@ -74,7 +75,7 @@ def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'H
     
     return acc
 
-def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5, include_all = False, vflag = '',detection=False):
+def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5, vflag = '', visibility=0.5, detection=False, labels=None, distractors=None, targets=None):
     """Compare groundtruth and detector results.
 
     This method assumes both results are given in terms of DataFrames with at least the following fields
@@ -98,6 +99,16 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Hei
         Fields relevant for extracting distance information. Defaults to ['X', 'Y', 'Width', 'Height']
     distth: float, optional
         Maximum tolerable distance. Pairs exceeding this threshold are marked 'do-not-pair'.
+    visibility: float, optional
+        Minimum visibility threshold. Default is 0.5 (per MOT-16 metric)
+    detection: bool, optional
+        Use detection metric. If not, tracking metric will be calculated
+    label: int array
+        Label definitions.
+    distractors: int array
+        Distractor label definitions.
+    targets: int array
+        Target labels to include for metric. If None, all in labels minus distractors will be considered target
     """
 
     def compute_iou(a, b):
@@ -112,14 +123,28 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Hei
     #import time
     #print('preprocess start.')
     #pst = time.time()
-    dt = preprocessResult(dt, gt, inifile)
+    dt = preprocessResult(dt, gt, inifile, labels=labels, distr=distractors)
     #pen = time.time()
     #print('preprocess take ', pen - pst)
-    if include_all:
-        gt = gt[gt['Confidence'] >= 0.99]
-    else:
-        #gt = gt[ (gt['Confidence'] >= 0.99) & (gt['ClassId'] == 1) ]
-        gt = gt[ (gt['Visibility'] >= 0.5) & (gt['ClassId'] == 1) ]    # following MOT17-Det benchmark, consider only when visibility is over 0.5
+    
+    # we only consider observations with confidence >= 0.99
+    target_index = gt['Confidence'] >= 0.99
+
+    # following MOT17-Det benchmark, consider only when visibility is over 0.5
+    if visibility is not None:
+        target_index &= gt['Visibility'] >= visibility
+
+    if targets is None:
+        logging.warning("Target labels not provided. Assuming 1 is the target")
+        targets = [1]
+
+    for l in targets:
+        target_index &= gt['ClassId'] == l
+
+    #gt = gt[ (gt['Confidence'] >= 0.99) & (gt['ClassId'] == 1) ]
+    #gt = gt[ (gt['Visibility'] >= 0.5) & (gt['ClassId'] == 1) ]   
+    gt = gt[ target_index ]
+
     # We need to account for all frames reported either by ground truth or
     # detector. In case a frame is missing in GT this will lead to FPs, in 
     # case a frame is missing in detector results this will lead to FNs.

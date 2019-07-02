@@ -13,26 +13,40 @@ import motmetrics.distances as mmd
 import time
 import logging
 
-def preprocessResult(res, gt, inifile):
+def preprocessResult(res, gt, inifile, labels=None, distr=None):
     st = time.time()
-    labels = ['ped',           # 1 
-    'person_on_vhcl',    # 2 
-    'car',               # 3 
-    'bicycle',           # 4 
-    'mbike',             # 5 
-    'non_mot_vhcl',      # 6 
-    'static_person',     # 7 
-    'distractor',        # 8 
-    'occluder',          # 9 
-    'occluder_on_grnd',      #10 
-    'occluder_full',         # 11
-    'reflection',        # 12
-    'crowd'          # 13
-    ] 
-    distractors_ = ['person_on_vhcl','static_person','distractor','reflection']
-    distractors = {i+1 : x in distractors_ for i,x in enumerate(labels)}
-    for i in distractors_:
-        distractors[i] = 1
+    if labels is None:
+        # if no labels are provided, then use default MOT-16 labels
+        logging.warn("Label definitions are not provided, use default MOT-16 labels.")
+        labels = [x for x in range(1,14)]
+        # definition of labels for MOT-16 is:
+        """labels = ['ped',           # 1 
+        'person_on_vhcl',    # 2 
+        'car',               # 3 
+        'bicycle',           # 4 
+        'mbike',             # 5 
+        'non_mot_vhcl',      # 6 
+        'static_person',     # 7 
+        'distractor',        # 8 
+        'occluder',          # 9 
+        'occluder_on_grnd',      #10 
+        'occluder_full',         # 11
+        'reflection',        # 12
+        'crowd'          # 13
+        ] """
+
+    if distr is None:
+        logging.warn("Distractor definitions are not provided, use default MOT-16 distractor labels")
+        distractors_ = [2,7,8,12]
+        # definition of distractor labels for MOT-16 is:
+        """distractors_ = ['person_on_vhcl','static_person','distractor','reflection']"""
+    else:
+        distractors_ = distr
+
+    # convert labels to dict
+    #distractors = {i+1 : x in distractors_ for i,x in enumerate(labels)}
+    distractors = {x: x in distractors_ for x in labels}
+
     seqIni = ConfigParser()
     seqIni.read(inifile, encoding='utf8')
     F = int(seqIni['Sequence']['seqLength'])
