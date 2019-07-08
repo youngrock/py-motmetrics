@@ -50,3 +50,6 @@ Temporary Items
 *.egg-info/
 build/
 dist/
+
+# vscode directory
+.vscode
