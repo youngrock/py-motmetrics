@@ -449,7 +449,7 @@ simple_add_func.append(num_fragmentations)
 
 def motp(df, num_detections):
     """Multiple object tracker precision."""
-    return df.noraw['D'].sum() / num_detections
+    return 1. - (df.noraw['D'].sum() / num_detections)
 
 def motp_m(partials, num_detections):
     res = 0
@@ -466,7 +466,7 @@ def mota_m(partials, num_misses, num_switches, num_false_positives, num_objects)
 
 def modp(df, num_detections):
     """MOT Det Precision"""
-    return df.noraw['D'].sum() / num_detections
+    return 1. - (df.noraw['D'].sum() / num_detections)
     
 def modp_m(partials, num_detections):
     res = 0
@@ -656,9 +656,9 @@ def create():
     m.register(partially_tracked, formatter='{:d}'.format)
     m.register(mostly_lost, formatter='{:d}'.format)
     m.register(num_fragmentations)
-    m.register(motp, formatter='{:.3f}'.format)
+    m.register(motp, formatter='{:.2%}'.format)
     m.register(mota, formatter='{:.1%}'.format)
-    m.register(modp, formatter='{:.3f}'.format)
+    m.register(modp, formatter='{:.2%}'.format)
     m.register(moda, formatter='{:.1%}'.format)
     m.register(precision, formatter='{:.1%}'.format)
     m.register(recall, formatter='{:.1%}'.format)
