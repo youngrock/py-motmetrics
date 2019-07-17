@@ -138,8 +138,11 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=['X', 'Y', 'Width', 'Hei
         logging.warning("Target labels not provided. Assuming 1 is the target")
         targets = [1]
 
-    for l in targets:
-        target_index &= gt['ClassId'] == l
+    label_index = gt['ClassId'] == targets[0]
+    for l in targets[1:]:
+        label_index |= gt['ClassId'] == l
+
+    target_index &= label_index
 
     #gt = gt[ (gt['Confidence'] >= 0.99) & (gt['ClassId'] == 1) ]
     #gt = gt[ (gt['Visibility'] >= 0.5) & (gt['ClassId'] == 1) ]   
