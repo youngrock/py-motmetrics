@@ -36,13 +36,15 @@ def preprocessResult(res, gt, inifile, labels=None, distr=None):
         ] """
 
     if distr is None:
-        logging.warn("Distractor definitions are not provided, use default MOT-16 distractor labels")
-        distractors_ = [2,7,8,12]
-        # definition of distractor labels for MOT-16 is:
-        """distractors_ = ['person_on_vhcl','static_person','distractor','reflection']"""
+        logging.warn("Distractor definitions are not provided")
+        distractors_ = []
     else:
         distractors_ = distr
 
+    if not distractors_:
+        # if no distractor is provided, just return
+        return res
+    
     # convert labels to dict
     #distractors = {i+1 : x in distractors_ for i,x in enumerate(labels)}
     distractors = {x: x in distractors_ for x in labels}
