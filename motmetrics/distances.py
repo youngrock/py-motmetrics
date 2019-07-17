@@ -60,6 +60,21 @@ def boxiou(a, b):
         return float(i)/u
     else: return 0.0
 
+def boxioa(a,b):
+    """ Intersection over area of first box.
+        Not commutative.
+    """
+    rx1 = max(a[0], b[0])
+    rx2 = min(a[0]+a[2], b[0]+b[2])
+    ry1 = max(a[1], b[1])
+    ry2 = min(a[1]+a[3], b[1]+b[3])
+    if ry2>ry1 and rx2>rx1:
+        i = (ry2-ry1)*(rx2-rx1)
+        u = a[2]*a[3]
+        return float(i)/u
+    else: return 0.0
+
+
 def iou_matrix(objs, hyps, max_iou=1.):
     """Computes 'intersection over union (IoU)' distance matrix between object and hypothesis rectangles.
 
